@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Budget Tracker - Shared</title>
+    <link rel="stylesheet" href="styles-firebase.css">
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="authScreen" class="screen active">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>💍 Wedding Budget Tracker</h1>
+                <p>Plan together, budget smarter</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="tab-btn active" onclick="switchAuthTab('login')">Sign In</button>
+                <button class="tab-btn" onclick="switchAuthTab('signup')">Create Account</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signupForm" class="auth-form" onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label for="signupName">Full Name</label>
+                    <input type="text" id="signupName" placeholder="Your Name" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupEmail">Email</label>
+                    <input type="email" id="signupEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupConfirm">Confirm Password</label>
+                    <input type="password" id="signupConfirm" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                <div id="signupError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Screen -->
+    <div id="appScreen" class="screen">
+        <div class="container">
+            <!-- Header with User Info -->
+            <header class="header">
+                <div class="header-content">
+                    <h1>💍 Wedding Budget Tracker</h1>
+                    <p class="subtitle">Track your wedding expenses with ease</p>
+                </div>
+                <div class="header-user">
+                    <span id="userEmail" class="user-email"></span>
+                    <button class="btn-logout" onclick="handleLogout()">Logout</button>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Budget Sharing Section -->
+                <section class="sharing-section">
+                    <div class="sharing-card">
+                        <h3>Share Budget</h3>
+                        <p>Invite your partner to collaborate</p>
+                        <div class="sharing-controls">
+                            <input type="email" id="shareEmail" placeholder="Partner's email" class="share-input">
+                            <button class="btn btn-secondary" onclick="shareBudgetWithUser()">Send Invite</button>
+                        </div>
+                        <div id="sharingStatus" class="sharing-status"></div>
+                        <div id="sharedUsers" class="shared-users-list"></div>
+                    </div>
+                </section>
+
+                <!-- Quick Add Categories -->
+                <section class="quick-add-section">
+                    <div class="section-header">
+                        <h2>Quick Add Expense</h2>
+                        <span class="category-count">12 categories</span>
+                    </div>
+                    <div class="quick-add-container" id="quickAddContainer">
+                        <!-- Categories will be populated by JavaScript -->
+                    </div>
+                    <p class="quick-add-hint">Tap any category to add it with estimated budget</p>
+                </section>
+
+                <!-- Summary Cards -->
+                <section class="summary-section">
+                    <div class="summary-card total-budget-card">
+                        <div class="card-label">Total Budget</div>
+                        <div class="card-value" id="totalBudgetDisplay">PKR 1,000,000</div>
+                        <button class="edit-budget-btn" onclick="openBudgetModal()">Edit Budget</button>
+                    </div>
+
+                    <div class="summary-cards-row">
+                        <div class="summary-card spent-card">
+                            <div class="card-label">TOTAL SPENT</div>
+                            <div class="card-value" id="totalSpentDisplay">PKR 0</div>
+                            <div class="card-percentage" id="spentPercentage">0% of budget</div>
+                        </div>
+
+                        <div class="summary-card remaining-card">
+                            <div class="card-label">REMAINING</div>
+                            <div class="card-value" id="remainingDisplay">PKR 1,000,000</div>
+                            <div id="budgetStatus" class="budget-status"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Expenses Section -->
+                <section class="expenses-section">
+                    <div class="section-header">
+                        <h2>All Expenses</h2>
+                        <span class="expense-count" id="expenseCount">0 items</span>
+                    </div>
+
+                    <div id="expensesContainer" class="expenses-container">
+                        <div class="empty-state">
+                            <p>No expenses yet</p>
+                            <p class="empty-state-hint">Add your first expense using the quick add buttons above</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Floating Action Button -->
+            <button class="fab" onclick="openAddExpenseModal()">+</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Expense Modal -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Expense</h2>
+                <button class="modal-close" onclick="closeExpenseModal()">&times;</button>
+            </div>
+            <form id="expenseForm" onsubmit="saveExpense(event)">
+                <div class="form-group">
+                    <label for="categoryInput">Category *</label>
+                    <input type="text" id="categoryInput" placeholder="e.g., Venue" required>
+                </div>
+                <div class="form-group">
+                    <label for="descriptionInput">Description</label>
+                    <input type="text" id="descriptionInput" placeholder="e.g., Main Hall">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="estimatedInput">Estimated Cost (PKR) *</label>
+                        <input type="number" id="estimatedInput" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="paidInput">Amount Paid (PKR)</label>
+                        <input type="number" id="paidInput" placeholder="0" min="0">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Budget Modal -->
+    <div id="budgetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Total Budget</h2>
+                <button class="modal-close" onclick="closeBudgetModal()">&times;</button>
+            </div>
+            <form id="budgetForm" onsubmit="saveBudget(event)">
+                <div class="form-group">
+                    <label for="budgetInput">Total Budget (PKR) *</label>
+                    <input type="number" id="budgetInput" placeholder="1000000" min="0" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeBudgetModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Budget</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overlay -->
+    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+
+    <!-- Firebase Config -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC62N7Zw5nFp_xCJA7QaRXO0PM7H8vtWOQ",
+            authDomain: "wedding-planner-48e08.firebaseapp.com",
+            databaseURL: "https://wedding-planner-48e08-default-rtdb.firebaseio.com",
+            projectId: "wedding-planner-48e08",
+            storageBucket: "wedding-planner-48e08.firebasestorage.app",
+            messagingSenderId: "254441178104",
+            appId: "1:254441178104:web:1ce0c3b16f2914b7414c0d"
+        };
+    </script>
+
+    <script src="script-firebase.js"></script>
+</body>
+</html>
