@@ -1,12 +1,28 @@
-// Firebase imports
-const { initializeApp } = window.firebase;
-const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } = window.firebase.auth;
-const { getDatabase, ref, set, get, update, remove, onValue, push } = window.firebase.database;
+// Firebase will be initialized after scripts load
+let app, auth, database;
 
-// Initialize Firebase (using firebaseConfig from HTML)
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const database = getDatabase(app);
+// Get Firebase functions - these will be available after Firebase loads
+// Firebase compat uses the v8 API structure
+function getFirebaseAuth() {
+    return window.firebase?.auth;
+}
+
+function getFirebaseDatabase() {
+    return window.firebase?.database;
+}
+
+function initializeFirebase() {
+    if (!window.firebase || !window.firebaseConfig) {
+        console.error('Firebase or firebaseConfig not available');
+        return false;
+    }
+    
+    // Firebase compat uses the v8 API structure
+    app = window.firebase.initializeApp(window.firebaseConfig);
+    auth = window.firebase.auth();
+    database = window.firebase.database();
+    return true;
+}
 
 // Predefined expense categories
 const EXPENSE_CATEGORIES = [
@@ -37,11 +53,19 @@ let editingExpenseId = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, (user) => {
+    // Initialize Firebase first
+    initializeFirebase();
+    
+    if (!auth) {
+        console.error('Firebase auth not initialized');
+        return;
+    }
+    
+    const authModule = getFirebaseAuth();
+    authModule.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
             showAppScreen();
-            document.getElementById('userEmail').textContent = user.email;
             initializeBudget();
             renderQuickAddButtons();
             listenToExpenses();
@@ -86,7 +110,8 @@ async function handleLogin(event) {
 
     try {
         errorDiv.classList.remove('show');
-        await signInWithEmailAndPassword(auth, email, password);
+        const authModule = getFirebaseAuth();
+        await authModule.signInWithEmailAndPassword(email, password);
     } catch (error) {
         errorDiv.textContent = error.message;
         errorDiv.classList.add('show');
@@ -109,10 +134,13 @@ async function handleSignup(event) {
 
     try {
         errorDiv.classList.remove('show');
-        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        const authModule = getFirebaseAuth();
+        const dbModule = getFirebaseDatabase();
+        const userCred = await authModule.createUserWithEmailAndPassword(email, password);
         
         // Create user profile
-        await set(ref(database, `users/${userCred.user.uid}`), {
+        const userRef = dbModule.ref(`users/${userCred.user.uid}`);
+        await userRef.set({
             name: name,
             email: email,
             createdAt: new Date().toISOString(),
@@ -125,7 +153,8 @@ async function handleSignup(event) {
 
 async function handleLogout() {
     try {
-        await signOut(auth);
+        const authModule = getFirebaseAuth();
+        await authModule.signOut();
     } catch (error) {
         console.error('Logout error:', error);
     }
@@ -134,8 +163,9 @@ async function handleLogout() {
 // Budget Management
 async function initializeBudget() {
     try {
-        const budgetsRef = ref(database, `budgets`);
-        const snapshot = await get(budgetsRef);
+        const db = getFirebaseDatabase();
+        const budgetsRef = db.ref(`budgets`);
+        const snapshot = await budgetsRef.once('value');
         
         if (snapshot.exists()) {
             const budgets = snapshot.val();
@@ -160,11 +190,12 @@ async function initializeBudget() {
 
 async function createNewBudget() {
     try {
-        const budgetsRef = ref(database, 'budgets');
-        const newBudgetRef = push(budgetsRef);
+        const db = getFirebaseDatabase();
+        const budgetsRef = db.ref('budgets');
+        const newBudgetRef = budgetsRef.push();
         const budgetId = newBudgetRef.key;
         
-        await set(newBudgetRef, {
+        await newBudgetRef.set({
             createdBy: currentUser.uid,
             totalBudget: 1000000,
             createdAt: new Date().toISOString(),
@@ -183,8 +214,9 @@ async function createNewBudget() {
 function listenToExpenses() {
     if (!currentBudgetId) return;
     
-    const expensesRef = ref(database, `budgets/${currentBudgetId}/expenses`);
-    onValue(expensesRef, (snapshot) => {
+    const db = getFirebaseDatabase();
+    const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+    expensesRef.on('value', (snapshot) => {
         state.expenses = [];
         if (snapshot.exists()) {
             const expenses = snapshot.val();
@@ -204,8 +236,9 @@ function listenToExpenses() {
 function listenToSharedUsers() {
     if (!currentBudgetId) return;
     
-    const budgetRef = ref(database, `budgets/${currentBudgetId}/sharedWith`);
-    onValue(budgetRef, (snapshot) => {
+    const db = getFirebaseDatabase();
+    const budgetRef = db.ref(`budgets/${currentBudgetId}/sharedWith`);
+    budgetRef.on('value', (snapshot) => {
         state.sharedWith = [];
         if (snapshot.exists()) {
             const sharedWith = snapshot.val();
@@ -283,10 +316,11 @@ async function quickAddExpense(category) {
     if (!currentBudgetId) return;
     
     try {
-        const expensesRef = ref(database, `budgets/${currentBudgetId}/expenses`);
-        const newExpenseRef = push(expensesRef);
+        const db = getFirebaseDatabase();
+        const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+        const newExpenseRef = expensesRef.push();
         
-        await set(newExpenseRef, {
+        await newExpenseRef.set({
             category: category.name,
             description: '',
             estimated: category.estimatedBudget,
@@ -398,19 +432,20 @@ async function saveExpense(event) {
     }
 
     try {
+        const db = getFirebaseDatabase();
         if (editingExpenseId) {
-            const expenseRef = ref(database, `budgets/${currentBudgetId}/expenses/${editingExpenseId}`);
-            await update(expenseRef, {
+            const expenseRef = db.ref(`budgets/${currentBudgetId}/expenses/${editingExpenseId}`);
+            await expenseRef.update({
                 category,
                 description,
                 estimated,
                 paid,
             });
         } else {
-            const expensesRef = ref(database, `budgets/${currentBudgetId}/expenses`);
-            const newExpenseRef = push(expensesRef);
+            const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+            const newExpenseRef = expensesRef.push();
             
-            await set(newExpenseRef, {
+            await newExpenseRef.set({
                 category,
                 description,
                 estimated,
@@ -430,8 +465,9 @@ async function saveExpense(event) {
 async function deleteExpense(id) {
     if (confirm('Are you sure you want to delete this expense?')) {
         try {
-            const expenseRef = ref(database, `budgets/${currentBudgetId}/expenses/${id}`);
-            await remove(expenseRef);
+            const db = getFirebaseDatabase();
+            const expenseRef = db.ref(`budgets/${currentBudgetId}/expenses/${id}`);
+            await expenseRef.remove();
         } catch (error) {
             console.error('Error deleting expense:', error);
             alert('Error deleting expense');
@@ -471,8 +507,9 @@ async function saveBudget(event) {
     }
 
     try {
-        const budgetRef = ref(database, `budgets/${currentBudgetId}`);
-        await update(budgetRef, { totalBudget: budget });
+        const db = getFirebaseDatabase();
+        const budgetRef = db.ref(`budgets/${currentBudgetId}`);
+        await budgetRef.update({ totalBudget: budget });
         state.totalBudget = budget;
         updateSummary();
         closeBudgetModal();
@@ -501,8 +538,9 @@ async function shareBudgetWithUser() {
 
     try {
         // Find user by email
-        const usersRef = ref(database, 'users');
-        const snapshot = await get(usersRef);
+        const db = getFirebaseDatabase();
+        const usersRef = db.ref('users');
+        const snapshot = await usersRef.once('value');
         let targetUserId = null;
 
         if (snapshot.exists()) {
@@ -522,8 +560,8 @@ async function shareBudgetWithUser() {
         }
 
         // Add user to shared list
-        const sharedRef = ref(database, `budgets/${currentBudgetId}/sharedWith/${targetUserId}`);
-        await set(sharedRef, {
+        const sharedRef = db.ref(`budgets/${currentBudgetId}/sharedWith/${targetUserId}`);
+        await sharedRef.set({
             email: email,
             sharedAt: new Date().toISOString(),
         });
@@ -568,8 +606,9 @@ function renderSharedUsers() {
 async function removeSharedUser(userId) {
     if (confirm('Remove this user from the shared budget?')) {
         try {
-            const sharedRef = ref(database, `budgets/${currentBudgetId}/sharedWith/${userId}`);
-            await remove(sharedRef);
+            const db = getFirebaseDatabase();
+            const sharedRef = db.ref(`budgets/${currentBudgetId}/sharedWith/${userId}`);
+            await sharedRef.remove();
         } catch (error) {
             console.error('Error removing user:', error);
             alert('Error removing user');
