@@ -4,11 +4,13 @@ let app, auth, database;
 // Get Firebase functions - these will be available after Firebase loads
 // Firebase compat uses the v8 API structure
 function getFirebaseAuth() {
-    return window.firebase?.auth;
+    // Return the auth service instance (not the module)
+    return window.firebase?.auth();
 }
 
 function getFirebaseDatabase() {
-    return window.firebase?.database;
+    // Return the database service instance (not the module)
+    return window.firebase?.database();
 }
 
 function initializeFirebase() {
@@ -21,6 +23,7 @@ function initializeFirebase() {
     app = window.firebase.initializeApp(window.firebaseConfig);
     auth = window.firebase.auth();
     database = window.firebase.database();
+    console.log('Firebase initialized successfully');
     return true;
 }
 
@@ -52,19 +55,32 @@ let state = {
 let editingExpenseId = null;
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
+    // Wait for Firebase to be available
+    if (!window.firebase) {
+        console.log('Waiting for Firebase to load...');
+        setTimeout(initApp, 100);
+        return;
+    }
+    
     // Initialize Firebase first
-    initializeFirebase();
+    if (!initializeFirebase()) {
+        console.error('Failed to initialize Firebase');
+        return;
+    }
     
     if (!auth) {
         console.error('Firebase auth not initialized');
         return;
     }
     
-    const authModule = getFirebaseAuth();
-    authModule.onAuthStateChanged((user) => {
+    console.log('Setting up auth state listener');
+    // Use the initialized auth instance directly
+    auth.onAuthStateChanged((user) => {
+        console.log('Auth state changed:', user ? user.email : 'signed out');
         if (user) {
             currentUser = user;
+            console.log('User signed in, showing app screen');
             showAppScreen();
             initializeBudget();
             renderQuickAddButtons();
@@ -72,20 +88,53 @@ document.addEventListener('DOMContentLoaded', () => {
             listenToSharedUsers();
         } else {
             currentUser = null;
+            console.log('User signed out, showing auth screen');
             showAuthScreen();
         }
     });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing app...');
+    initApp();
 });
 
 // Screen Management
 function showAuthScreen() {
-    document.getElementById('authScreen').classList.add('active');
-    document.getElementById('appScreen').classList.remove('active');
+    const authScreen = document.getElementById('authScreen');
+    const appScreen = document.getElementById('appScreen');
+    
+    if (!authScreen || !appScreen) {
+        console.error('Screen elements not found!', { authScreen, appScreen });
+        return;
+    }
+    
+    authScreen.classList.add('active');
+    appScreen.classList.remove('active');
 }
 
 function showAppScreen() {
-    document.getElementById('authScreen').classList.remove('active');
-    document.getElementById('appScreen').classList.add('active');
+    console.log('Showing app screen');
+    const authScreen = document.getElementById('authScreen');
+    const appScreen = document.getElementById('appScreen');
+    
+    if (!authScreen || !appScreen) {
+        console.error('Screen elements not found!', { authScreen, appScreen });
+        return;
+    }
+    
+    console.log('Before:', {
+        authScreenClasses: authScreen.className,
+        appScreenClasses: appScreen.className
+    });
+    
+    authScreen.classList.remove('active');
+    appScreen.classList.add('active');
+    
+    console.log('After:', {
+        authScreenClasses: authScreen.className,
+        appScreenClasses: appScreen.className
+    });
 }
 
 // Auth Functions
@@ -110,9 +159,11 @@ async function handleLogin(event) {
 
     try {
         errorDiv.classList.remove('show');
-        const authModule = getFirebaseAuth();
-        await authModule.signInWithEmailAndPassword(email, password);
+        console.log('Attempting to sign in:', email);
+        const userCred = await auth.signInWithEmailAndPassword(email, password);
+        console.log('Sign in successful:', userCred.user.email);
     } catch (error) {
+        console.error('Sign in error:', error);
         errorDiv.textContent = error.message;
         errorDiv.classList.add('show');
     }
@@ -134,12 +185,10 @@ async function handleSignup(event) {
 
     try {
         errorDiv.classList.remove('show');
-        const authModule = getFirebaseAuth();
-        const dbModule = getFirebaseDatabase();
-        const userCred = await authModule.createUserWithEmailAndPassword(email, password);
+        const userCred = await auth.createUserWithEmailAndPassword(email, password);
         
         // Create user profile
-        const userRef = dbModule.ref(`users/${userCred.user.uid}`);
+        const userRef = database.ref(`users/${userCred.user.uid}`);
         await userRef.set({
             name: name,
             email: email,
@@ -153,8 +202,7 @@ async function handleSignup(event) {
 
 async function handleLogout() {
     try {
-        const authModule = getFirebaseAuth();
-        await authModule.signOut();
+        await auth.signOut();
     } catch (error) {
         console.error('Logout error:', error);
     }
@@ -163,16 +211,18 @@ async function handleLogout() {
 // Budget Management
 async function initializeBudget() {
     try {
-        const db = getFirebaseDatabase();
-        const budgetsRef = db.ref(`budgets`);
+        console.log('Initializing budget for user:', currentUser.uid);
+        const budgetsRef = database.ref(`budgets`);
         const snapshot = await budgetsRef.once('value');
         
         if (snapshot.exists()) {
             const budgets = snapshot.val();
+            console.log('Found budgets:', Object.keys(budgets));
             // Find budget created by current user or shared with them
             for (const budgetId in budgets) {
                 const budget = budgets[budgetId];
                 if (budget.createdBy === currentUser.uid || (budget.sharedWith && budget.sharedWith[currentUser.uid])) {
+                    console.log('Found existing budget:', budgetId);
                     currentBudgetId = budgetId;
                     state.totalBudget = budget.totalBudget || 1000000;
                     updateSummary();
@@ -182,6 +232,7 @@ async function initializeBudget() {
         }
         
         // Create new budget if none exists
+        console.log('No existing budget found, creating new one');
         createNewBudget();
     } catch (error) {
         console.error('Error initializing budget:', error);
@@ -190,8 +241,7 @@ async function initializeBudget() {
 
 async function createNewBudget() {
     try {
-        const db = getFirebaseDatabase();
-        const budgetsRef = db.ref('budgets');
+        const budgetsRef = database.ref('budgets');
         const newBudgetRef = budgetsRef.push();
         const budgetId = newBudgetRef.key;
         
@@ -214,8 +264,7 @@ async function createNewBudget() {
 function listenToExpenses() {
     if (!currentBudgetId) return;
     
-    const db = getFirebaseDatabase();
-    const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+    const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
     expensesRef.on('value', (snapshot) => {
         state.expenses = [];
         if (snapshot.exists()) {
@@ -236,8 +285,7 @@ function listenToExpenses() {
 function listenToSharedUsers() {
     if (!currentBudgetId) return;
     
-    const db = getFirebaseDatabase();
-    const budgetRef = db.ref(`budgets/${currentBudgetId}/sharedWith`);
+    const budgetRef = database.ref(`budgets/${currentBudgetId}/sharedWith`);
     budgetRef.on('value', (snapshot) => {
         state.sharedWith = [];
         if (snapshot.exists()) {
@@ -316,8 +364,7 @@ async function quickAddExpense(category) {
     if (!currentBudgetId) return;
     
     try {
-        const db = getFirebaseDatabase();
-        const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+        const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
         const newExpenseRef = expensesRef.push();
         
         await newExpenseRef.set({
@@ -432,9 +479,8 @@ async function saveExpense(event) {
     }
 
     try {
-        const db = getFirebaseDatabase();
         if (editingExpenseId) {
-            const expenseRef = db.ref(`budgets/${currentBudgetId}/expenses/${editingExpenseId}`);
+            const expenseRef = database.ref(`budgets/${currentBudgetId}/expenses/${editingExpenseId}`);
             await expenseRef.update({
                 category,
                 description,
@@ -442,7 +488,7 @@ async function saveExpense(event) {
                 paid,
             });
         } else {
-            const expensesRef = db.ref(`budgets/${currentBudgetId}/expenses`);
+            const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
             const newExpenseRef = expensesRef.push();
             
             await newExpenseRef.set({
@@ -465,8 +511,7 @@ async function saveExpense(event) {
 async function deleteExpense(id) {
     if (confirm('Are you sure you want to delete this expense?')) {
         try {
-            const db = getFirebaseDatabase();
-            const expenseRef = db.ref(`budgets/${currentBudgetId}/expenses/${id}`);
+            const expenseRef = database.ref(`budgets/${currentBudgetId}/expenses/${id}`);
             await expenseRef.remove();
         } catch (error) {
             console.error('Error deleting expense:', error);
@@ -507,8 +552,7 @@ async function saveBudget(event) {
     }
 
     try {
-        const db = getFirebaseDatabase();
-        const budgetRef = db.ref(`budgets/${currentBudgetId}`);
+        const budgetRef = database.ref(`budgets/${currentBudgetId}`);
         await budgetRef.update({ totalBudget: budget });
         state.totalBudget = budget;
         updateSummary();
@@ -538,8 +582,7 @@ async function shareBudgetWithUser() {
 
     try {
         // Find user by email
-        const db = getFirebaseDatabase();
-        const usersRef = db.ref('users');
+        const usersRef = database.ref('users');
         const snapshot = await usersRef.once('value');
         let targetUserId = null;
 
@@ -560,7 +603,7 @@ async function shareBudgetWithUser() {
         }
 
         // Add user to shared list
-        const sharedRef = db.ref(`budgets/${currentBudgetId}/sharedWith/${targetUserId}`);
+        const sharedRef = database.ref(`budgets/${currentBudgetId}/sharedWith/${targetUserId}`);
         await sharedRef.set({
             email: email,
             sharedAt: new Date().toISOString(),
@@ -606,8 +649,7 @@ function renderSharedUsers() {
 async function removeSharedUser(userId) {
     if (confirm('Remove this user from the shared budget?')) {
         try {
-            const db = getFirebaseDatabase();
-            const sharedRef = db.ref(`budgets/${currentBudgetId}/sharedWith/${userId}`);
+            const sharedRef = database.ref(`budgets/${currentBudgetId}/sharedWith/${userId}`);
             await sharedRef.remove();
         } catch (error) {
             console.error('Error removing user:', error);

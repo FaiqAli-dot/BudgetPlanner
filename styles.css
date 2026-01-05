@@ -44,7 +44,7 @@ body {
 
 /* Screen Management */
 .screen {
-    display: none;
+    display: none !important;
 }
 
 .screen.active {
@@ -54,10 +54,19 @@ body {
 /* Auth Screen */
 #authScreen {
     min-height: 100vh;
-    display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    display: none !important;
+}
+
+#authScreen.active {
+    display: flex !important;
+}
+
+/* App Screen */
+#appScreen.active {
+    display: block !important;
 }
 
 .auth-container {
