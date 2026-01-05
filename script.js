@@ -3,17 +3,7 @@ const { initializeApp } = window.firebase;
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } = window.firebase.auth;
 const { getDatabase, ref, set, get, update, remove, onValue, push } = window.firebase.database;
 
-// Initialize Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyC62N7Zw5nFp_xCJA7QaRXO0PM7H8vtWOQ",
-    authDomain: "wedding-planner-48e08.firebaseapp.com",
-    databaseURL: "https://wedding-planner-48e08-default-rtdb.firebaseio.com",
-    projectId: "wedding-planner-48e08",
-    storageBucket: "wedding-planner-48e08.firebasestorage.app",
-    messagingSenderId: "254441178104",
-    appId: "1:254441178104:web:1ce0c3b16f2914b7414c0d"
-};
-
+// Initialize Firebase (using firebaseConfig from HTML)
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
