@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Budget Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Wedding Budget Tracker</h1>
+            <div class="budget-overview">
+                <div class="budget-item">
+                    <span class="label">Total Budget:</span>
+                    <span class="value">PKR 1,000,000</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="table-container">
+                <table id="expense-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Estimated (PKR)</th>
+                            <th>Paid (PKR)</th>
+                            <th>Pending (PKR)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expense-body">
+                        <!-- Default rows will be added by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="add-expense-section">
+                <h3>Add New Expense</h3>
+                <div class="input-group">
+                    <input type="text" id="new-category" placeholder="Category (e.g., Venue)">
+                    <input type="text" id="new-description" placeholder="Description">
+                    <input type="number" id="new-estimated" placeholder="Estimated Cost">
+                    <input type="number" id="new-paid" placeholder="Amount Paid">
+                    <button id="add-btn">Add Expense</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="summary-section">
+                <div class="summary-item">
+                    <span class="label">Total Spent:</span>
+                    <span id="total-spent" class="value">PKR 0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Remaining Cash:</span>
+                    <span id="remaining-cash" class="value">PKR 1,000,000</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

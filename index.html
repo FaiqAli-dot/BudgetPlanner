@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wedding Budget Tracker - Shared</title>
+    <title>Wedding Budget Tracker</title>
     <link rel="stylesheet" href="styles-firebase.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
         <div class="auth-container">
             <div class="auth-header">
                 <h1>💍 Wedding Budget Tracker</h1>
-                <p>Plan together, budget smarter</p>
+                <p>Track your wedding expenses with ease</p>
             </div>
 
             <div class="auth-tabs">
@@ -60,35 +60,20 @@
 
     <!-- App Screen -->
     <div id="appScreen" class="screen">
-        <div class="container">
-            <!-- Header with User Info -->
-            <header class="header">
-                <div class="header-content">
-                    <h1>💍 Wedding Budget Tracker</h1>
-                    <p class="subtitle">Track your wedding expenses with ease</p>
-                </div>
-                <div class="header-user">
-                    <span id="userEmail" class="user-email"></span>
-                    <button class="btn-logout" onclick="handleLogout()">Logout</button>
-                </div>
-            </header>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>💍 Wedding Budget Tracker</h1>
+                <p class="subtitle">Track your wedding expenses</p>
+            </div>
+            <div class="header-user">
+                <button class="btn-logout" onclick="handleLogout()">Logout</button>
+            </div>
+        </header>
 
+        <div class="container">
             <!-- Main Content -->
             <main class="main-content">
-                <!-- Budget Sharing Section -->
-                <section class="sharing-section">
-                    <div class="sharing-card">
-                        <h3>Share Budget</h3>
-                        <p>Invite your partner to collaborate</p>
-                        <div class="sharing-controls">
-                            <input type="email" id="shareEmail" placeholder="Partner's email" class="share-input">
-                            <button class="btn btn-secondary" onclick="shareBudgetWithUser()">Send Invite</button>
-                        </div>
-                        <div id="sharingStatus" class="sharing-status"></div>
-                        <div id="sharedUsers" class="shared-users-list"></div>
-                    </div>
-                </section>
-
                 <!-- Quick Add Categories -->
                 <section class="quick-add-section">
                     <div class="section-header">
@@ -121,6 +106,22 @@
                             <div class="card-value" id="remainingDisplay">PKR 1,000,000</div>
                             <div id="budgetStatus" class="budget-status"></div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Budget Sharing Section -->
+                <section class="sharing-section">
+                    <div class="section-header">
+                        <h2>Share Budget</h2>
+                    </div>
+                    <div class="sharing-card">
+                        <p class="sharing-description">Invite your partner to collaborate</p>
+                        <div class="sharing-controls">
+                            <input type="email" id="shareEmail" placeholder="Partner's email" class="share-input">
+                            <button class="btn btn-secondary" onclick="shareBudgetWithUser()">Send Invite</button>
+                        </div>
+                        <div id="sharingStatus" class="sharing-status"></div>
+                        <div id="sharedUsers" class="shared-users-list"></div>
                     </div>
                 </section>
 
