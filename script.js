@@ -82,10 +82,12 @@ function initApp() {
             currentUser = user;
             console.log('User signed in, showing app screen');
             showAppScreen();
-            initializeBudget();
             renderQuickAddButtons();
-            listenToExpenses();
-            listenToSharedUsers();
+            // Initialize budget first, then set up listeners
+            initializeBudget().then(() => {
+                listenToExpenses();
+                listenToSharedUsers();
+            });
         } else {
             currentUser = null;
             console.log('User signed out, showing auth screen');
@@ -226,21 +228,23 @@ async function initializeBudget() {
                     currentBudgetId = budgetId;
                     state.totalBudget = budget.totalBudget || 1000000;
                     updateSummary();
-                    return;
+                    return Promise.resolve();
                 }
             }
         }
         
         // Create new budget if none exists
         console.log('No existing budget found, creating new one');
-        createNewBudget();
+        await createNewBudget();
     } catch (error) {
         console.error('Error initializing budget:', error);
+        return Promise.reject(error);
     }
 }
 
 async function createNewBudget() {
     try {
+        console.log('Creating new budget...');
         const budgetsRef = database.ref('budgets');
         const newBudgetRef = budgetsRef.push();
         const budgetId = newBudgetRef.key;
@@ -252,20 +256,28 @@ async function createNewBudget() {
             sharedWith: {},
         });
         
+        console.log('Budget created with ID:', budgetId);
         currentBudgetId = budgetId;
         state.totalBudget = 1000000;
         updateSummary();
+        return Promise.resolve();
     } catch (error) {
         console.error('Error creating budget:', error);
+        return Promise.reject(error);
     }
 }
 
 // Listen to Expenses
 function listenToExpenses() {
-    if (!currentBudgetId) return;
+    if (!currentBudgetId) {
+        console.warn('Cannot listen to expenses: currentBudgetId not set');
+        return;
+    }
     
+    console.log('Setting up expense listener for budget:', currentBudgetId);
     const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
     expensesRef.on('value', (snapshot) => {
+        console.log('Expense data received:', snapshot.exists() ? snapshot.val() : 'empty');
         state.expenses = [];
         if (snapshot.exists()) {
             const expenses = snapshot.val();
@@ -276,6 +288,7 @@ function listenToExpenses() {
                 });
             }
         }
+        console.log('Updated state.expenses:', state.expenses.length, 'items');
         renderExpenses();
         updateSummary();
     });
@@ -361,21 +374,32 @@ function renderQuickAddButtons() {
 
 // Quick Add Expense
 async function quickAddExpense(category) {
-    if (!currentBudgetId) return;
+    console.log('Quick add expense called:', category.name, 'Budget ID:', currentBudgetId);
+    if (!currentBudgetId) {
+        console.error('No currentBudgetId set!');
+        alert('Budget not initialized. Please refresh the page.');
+        return;
+    }
     
     try {
+        console.log('Creating expense in database...');
         const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
         const newExpenseRef = expensesRef.push();
         
-        await newExpenseRef.set({
+        const expenseData = {
             category: category.name,
             description: '',
             estimated: category.estimatedBudget,
             paid: 0,
             createdAt: new Date().toISOString(),
-        });
+        };
+        
+        console.log('Setting expense data:', expenseData);
+        await newExpenseRef.set(expenseData);
+        console.log('Expense added successfully!');
     } catch (error) {
         console.error('Error adding expense:', error);
+        alert('Error adding expense: ' + error.message);
     }
 }
 
@@ -461,14 +485,24 @@ function editExpense(id) {
 // Save Expense
 async function saveExpense(event) {
     event.preventDefault();
+    
+    console.log('Save expense called, currentBudgetId:', currentBudgetId);
 
     const category = document.getElementById('categoryInput').value.trim();
     const description = document.getElementById('descriptionInput').value.trim();
     const estimated = parseFloat(document.getElementById('estimatedInput').value) || 0;
     const paid = parseFloat(document.getElementById('paidInput').value) || 0;
 
+    console.log('Expense data:', { category, description, estimated, paid, editingExpenseId });
+
     if (!category) {
         alert('Please enter a category');
+        return;
+    }
+    
+    if (!currentBudgetId) {
+        console.error('No currentBudgetId set!');
+        alert('Budget not initialized. Please refresh the page.');
         return;
     }
 
@@ -480,6 +514,7 @@ async function saveExpense(event) {
 
     try {
         if (editingExpenseId) {
+            console.log('Updating existing expense:', editingExpenseId);
             const expenseRef = database.ref(`budgets/${currentBudgetId}/expenses/${editingExpenseId}`);
             await expenseRef.update({
                 category,
@@ -487,23 +522,29 @@ async function saveExpense(event) {
                 estimated,
                 paid,
             });
+            console.log('Expense updated successfully');
         } else {
+            console.log('Creating new expense...');
             const expensesRef = database.ref(`budgets/${currentBudgetId}/expenses`);
             const newExpenseRef = expensesRef.push();
             
-            await newExpenseRef.set({
+            const expenseData = {
                 category,
                 description,
                 estimated,
                 paid,
                 createdAt: new Date().toISOString(),
-            });
+            };
+            
+            console.log('Setting expense data:', expenseData);
+            await newExpenseRef.set(expenseData);
+            console.log('Expense created successfully');
         }
 
         closeExpenseModal();
     } catch (error) {
         console.error('Error saving expense:', error);
-        alert('Error saving expense');
+        alert('Error saving expense: ' + error.message);
     }
 }
 
